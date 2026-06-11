@@ -6,33 +6,33 @@
 <title>3D Walkthrough</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; font-family: sans-serif; touch-action: none; }
+  body { background: #000; overflow: hidden; font-family: -apple-system, sans-serif; touch-action: none; }
   canvas { display: block; }
 
   #overlay {
     position: absolute; inset: 0;
-    background: rgba(0,0,0,0.75);
+    background: rgba(0,0,0,0.78);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     color: #fff; z-index: 10;
   }
-  #overlay h1 { font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.1em; }
-  #overlay p  { color: #aaa; margin-bottom: 2rem; font-size: 0.95rem; text-align: center; padding: 0 1.5rem; }
+  #overlay h1 { font-size: 1.8rem; font-weight: 300; margin-bottom: 0.4rem; letter-spacing: 0.08em; }
+  #overlay p  { color: #aaa; margin-bottom: 2rem; font-size: 0.9rem; text-align: center; padding: 0 1.5rem; }
   #overlay button {
-    padding: 0.75rem 2rem; background: #fff; color: #000;
+    padding: 0.75rem 2.5rem; background: #fff; color: #000;
     border: none; font-size: 1rem; cursor: pointer;
-    border-radius: 4px; font-weight: 500;
+    border-radius: 6px; font-weight: 500;
   }
-  #hints { margin-top: 2rem; color: #555; font-size: 0.75rem; text-align: center; line-height: 2; }
+  #hints { margin-top: 2rem; color: #444; font-size: 0.75rem; text-align: center; line-height: 2; }
 
   #loading {
     position: absolute; inset: 0; background: #000;
     display: none; align-items: center; justify-content: center;
     flex-direction: column; color: #fff; z-index: 20;
   }
-  #loading p { margin-top: 1rem; color: #aaa; }
+  #loading p { margin-top: 1rem; color: #aaa; font-size: 0.9rem; }
   .spinner {
-    width: 40px; height: 40px;
+    width: 36px; height: 36px;
     border: 3px solid #333; border-top-color: #fff;
     border-radius: 50%; animation: spin 0.8s linear infinite;
   }
@@ -41,7 +41,7 @@
   #crosshair {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%,-50%);
-    width: 16px; height: 16px;
+    width: 14px; height: 14px;
     pointer-events: none; display: none;
   }
   #crosshair::before, #crosshair::after {
@@ -50,6 +50,35 @@
   #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
   #crosshair::after  { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
 
+  /* Control panel */
+  #panel {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #fff; font-size: 0.78rem;
+    display: none; z-index: 5;
+    min-width: 220px;
+  }
+  #panel .panel-title {
+    font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #888; margin-bottom: 12px;
+  }
+  .ctrl-row { margin-bottom: 10px; }
+  .ctrl-row label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .ctrl-row label span { color: #aaa; }
+  .ctrl-row input[type=range] {
+    width: 100%; accent-color: #fff;
+    height: 3px; cursor: pointer;
+  }
+  #panel .sun-info {
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    color: #777; font-size: 0.72rem; line-height: 1.7;
+  }
+
   /* Touch controls */
   #touch-controls {
     position: absolute; bottom: 20px; left: 0; right: 0;
@@ -57,66 +86,48 @@
     align-items: flex-end; padding: 0 20px;
     pointer-events: none; z-index: 5;
   }
-
   .dpad {
     display: grid;
     grid-template-columns: repeat(3, 52px);
     grid-template-rows: repeat(3, 52px);
-    gap: 4px;
-    pointer-events: all;
+    gap: 4px; pointer-events: all;
   }
   .dpad button {
     width: 52px; height: 52px;
-    background: rgba(255,255,255,0.15);
-    border: 1.5px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.25);
     border-radius: 10px; color: #fff;
-    font-size: 20px; cursor: pointer;
+    font-size: 18px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    -webkit-tap-highlight-color: transparent; user-select: none;
   }
-  .dpad button:active { background: rgba(255,255,255,0.35); }
+  .dpad button:active { background: rgba(255,255,255,0.3); }
   .dpad .empty { background: none; border: none; pointer-events: none; }
-
-  .dpad-vertical {
-    display: flex; flex-direction: column; gap: 4px;
-    pointer-events: all;
-  }
+  .dpad-vertical { display: flex; flex-direction: column; gap: 4px; pointer-events: all; }
   .dpad-vertical button {
     width: 52px; height: 52px;
-    background: rgba(255,255,255,0.15);
-    border: 1.5px solid rgba(255,255,255,0.3);
-    border-radius: 10px; color: #fff;
-    font-size: 20px; cursor: pointer;
+    background: rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 10px; color: #fff; font-size: 18px;
     display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
+    -webkit-tap-highlight-color: transparent; user-select: none;
   }
-  .dpad-vertical button:active { background: rgba(255,255,255,0.35); }
+  .dpad-vertical button:active { background: rgba(255,255,255,0.3); }
 
   #look-zone {
-    position: absolute; top: 0; left: 180px; right: 0; bottom: 140px;
+    position: absolute; top: 0; left: 180px; right: 0; bottom: 160px;
     z-index: 4; display: none;
   }
-  #look-hint {
-    position: absolute; top: 16px; right: 16px;
-    color: rgba(255,255,255,0.3); font-size: 0.7rem;
-    pointer-events: none; display: none;
-  }
-
   #hud-desktop {
-    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
-    color: rgba(255,255,255,0.4); font-size: 0.75rem;
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.3); font-size: 0.72rem;
     pointer-events: none; display: none;
   }
 </style>
 </head>
 <body>
 
-<div id="loading">
-  <div class="spinner"></div>
-  <p>Modell wird geladen…</p>
-</div>
+<div id="loading"><div class="spinner"></div><p>Modell wird geladen…</p></div>
 
 <div id="overlay">
   <h1>3D Walkthrough</h1>
@@ -129,29 +140,51 @@
 </div>
 
 <div id="crosshair"></div>
-
-<!-- Mobile touch look zone -->
 <div id="look-zone"></div>
-<div id="look-hint">Finger ziehen zum Umsehen</div>
 
-<!-- Mobile dpad -->
+<!-- Control Panel -->
+<div id="panel">
+  <div class="panel-title">Einstellungen</div>
+
+  <div class="ctrl-row">
+    <label>Helligkeit <span id="val-exposure">1.8</span></label>
+    <input type="range" id="sl-exposure" min="0.2" max="4" step="0.1" value="1.8">
+  </div>
+
+  <div class="ctrl-row">
+    <label>Sonnenzeit <span id="val-hour">12:00</span></label>
+    <input type="range" id="sl-hour" min="5" max="21" step="0.25" value="12">
+  </div>
+
+  <div class="ctrl-row">
+    <label>Datum <span id="val-date">21. Jun</span></label>
+    <input type="range" id="sl-day" min="1" max="365" step="1" value="172">
+  </div>
+
+  <div class="ctrl-row">
+    <label>Sonnenstärke <span id="val-sun">1.5</span></label>
+    <input type="range" id="sl-sun" min="0" max="5" step="0.1" value="1.5">
+  </div>
+
+  <div class="sun-info" id="sun-info">Standort wird geladen…</div>
+</div>
+
+<!-- Touch dpad -->
 <div id="touch-controls">
-  <!-- left: movement dpad -->
   <div class="dpad">
     <div class="empty"></div>
-    <button id="btn-f" data-dir="f">▲</button>
+    <button id="btn-f">▲</button>
     <div class="empty"></div>
-    <button id="btn-l" data-dir="l">◀</button>
+    <button id="btn-l">◀</button>
     <div class="empty"></div>
-    <button id="btn-r" data-dir="r">▶</button>
+    <button id="btn-r">▶</button>
     <div class="empty"></div>
-    <button id="btn-b" data-dir="b">▼</button>
+    <button id="btn-b">▼</button>
     <div class="empty"></div>
   </div>
-  <!-- right: up/down -->
   <div class="dpad-vertical">
-    <button id="btn-u" data-dir="u">↑</button>
-    <button id="btn-d" data-dir="d">↓</button>
+    <button id="btn-u">↑</button>
+    <button id="btn-d">↓</button>
   </div>
 </div>
 
@@ -170,18 +203,16 @@
 import * as THREE from 'three';
 import { GLTFLoader }          from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }         from 'three/addons/loaders/DRACOLoader.js';
+import { RGBELoader }          from 'three/addons/loaders/RGBELoader.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 // ─── KONFIGURATION ──────────────────────────────────────────────────
-const MODEL_PATH        = 'model.glb';
-const START_POS         = { x: 0, y: 1.7, z: 5 };
-const MOVE_SPEED        = 0.08;
-const TOUCH_LOOK_SENS   = 0.005;
-const FOG_COLOR         = 0x111111;
-const FOG_NEAR          = 10;
-const FOG_FAR           = 80;
-const AMBIENT_INTENSITY = 3.5;
-const SUN_INTENSITY     = 4.0;
+const MODEL_PATH      = 'model.glb';
+const ENV_PATH        = 'env.hdr';
+const LOCATION_PATH   = 'location.json';
+const START_POS       = { x: 0, y: 1.7, z: 5 };
+const MOVE_SPEED      = 0.08;
+const TOUCH_LOOK_SENS = 0.005;
 // ────────────────────────────────────────────────────────────────────
 
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
@@ -195,65 +226,156 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.8;
 document.body.appendChild(renderer.domElement);
 
 // Scene
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(FOG_COLOR);
-scene.fog = new THREE.Fog(FOG_COLOR, FOG_NEAR, FOG_FAR);
+scene.background = new THREE.Color(0x87ceeb);
 
 // Camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(START_POS.x, START_POS.y, START_POS.z);
 
 // Lights
-scene.add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
-const sun = new THREE.DirectionalLight(0xfff5e0, SUN_INTENSITY);
-sun.position.set(10, 20, 10);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { near:0.5, far:100, left:-30, right:30, top:30, bottom:-30 });
-scene.add(sun);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
 
-// Desktop controls
+const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.5);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+Object.assign(sunLight.shadow.camera, { near:0.5, far:200, left:-30, right:30, top:30, bottom:-30 });
+scene.add(sunLight);
+
+// Sky gradient background
+const skyGeo  = new THREE.SphereGeometry(100, 16, 16);
+const skyMat  = new THREE.MeshBasicMaterial({ color: 0x87ceeb, side: THREE.BackSide });
+const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+scene.add(skyMesh);
+
+// ── Sun position calculator (simplified solar algorithm) ───────────
+let locationData = { lat: 48.7758, lng: 9.1829, timezone: 1, name: 'Stuttgart' };
+
+function sunPosition(lat, lng, dayOfYear, hourDecimal, timezone) {
+  const B     = (360 / 365) * (dayOfYear - 81) * Math.PI / 180;
+  const EoT   = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const TC    = 4 * lng - 60 * timezone + EoT;
+  const LST   = hourDecimal + TC / 60;
+  const HRA   = 15 * (LST - 12) * Math.PI / 180;
+  const decl  = 23.45 * Math.sin(B) * Math.PI / 180;
+  const latR  = lat * Math.PI / 180;
+  const sinAlt= Math.sin(decl)*Math.sin(latR) + Math.cos(decl)*Math.cos(latR)*Math.cos(HRA);
+  const alt   = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const cosAz = (Math.sin(decl) - Math.sin(alt)*Math.sin(latR)) / (Math.cos(alt)*Math.cos(latR));
+  const az    = Math.acos(Math.max(-1, Math.min(1, cosAz))) * (Math.sin(HRA) > 0 ? -1 : 1);
+  return { altitude: alt, azimuth: az };
+}
+
+function updateSun() {
+  const hour    = parseFloat(document.getElementById('sl-hour').value);
+  const day     = parseInt(document.getElementById('sl-day').value);
+  const sunStr  = parseFloat(document.getElementById('sl-sun').value);
+  const { lat, lng, timezone } = locationData;
+  const { altitude, azimuth }  = sunPosition(lat, lng, day, hour, timezone);
+
+  const dist = 80;
+  sunLight.position.set(
+    dist * Math.cos(altitude) * Math.sin(azimuth),
+    dist * Math.sin(altitude),
+    dist * Math.cos(altitude) * Math.cos(azimuth)
+  );
+  sunLight.intensity = Math.max(0, Math.sin(altitude)) * sunStr;
+
+  // Sky color based on sun altitude
+  const t = Math.max(0, Math.sin(altitude));
+  const skyColor = new THREE.Color().lerpColors(
+    new THREE.Color(0xff6633), new THREE.Color(0x87ceeb), t
+  );
+  scene.background = skyColor;
+  skyMat.color.set(skyColor);
+  ambientLight.intensity = 0.2 + t * 0.5;
+
+  // Update display
+  const h = Math.floor(hour);
+  const m = Math.round((hour % 1) * 60).toString().padStart(2,'0');
+  document.getElementById('val-hour').textContent = `${h}:${m}`;
+
+  const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  const date   = new Date(2024, 0, day);
+  document.getElementById('val-date').textContent =
+    `${date.getDate()}. ${months[date.getMonth()]}`;
+
+  document.getElementById('val-sun').textContent = sunStr.toFixed(1);
+
+  const azDeg  = ((azimuth * 180 / Math.PI) + 360) % 360;
+  const altDeg = (altitude * 180 / Math.PI).toFixed(1);
+  document.getElementById('sun-info').innerHTML =
+    `📍 ${locationData.name}<br>` +
+    `☀️ Höhe: ${altDeg}° &nbsp;|&nbsp; Az: ${azDeg.toFixed(0)}°<br>` +
+    `${altitude > 0 ? 'Sonne über dem Horizont' : '🌙 Unter dem Horizont'}`;
+}
+
+// Load location.json
+fetch(LOCATION_PATH)
+  .then(r => r.json())
+  .then(data => {
+    locationData = data;
+    updateSun();
+  })
+  .catch(() => updateSun()); // fallback to defaults
+
+// Slider events
+document.getElementById('sl-exposure').addEventListener('input', e => {
+  renderer.toneMappingExposure = parseFloat(e.target.value);
+  document.getElementById('val-exposure').textContent = parseFloat(e.target.value).toFixed(1);
+});
+['sl-hour','sl-day','sl-sun'].forEach(id =>
+  document.getElementById(id).addEventListener('input', updateSun)
+);
+
+// ── IBL Environment ────────────────────────────────────────────────
+new RGBELoader().load(ENV_PATH, hdr => {
+  const pmrem  = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const envMap = pmrem.fromEquirectangular(hdr).texture;
+  scene.environment = envMap;
+  hdr.dispose(); pmrem.dispose();
+});
+
+// ── Desktop controls ───────────────────────────────────────────────
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
 const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup',   e => keys[e.code] = false);
 
-// Touch state
-const touchMove = { f:false, b:false, l:false, r:false, u:false, d:false };
-let   touchYaw   = 0;
-let   touchPitch = 0;
-let   lookActive = false;
-let   lookLastX  = 0;
-let   lookLastY  = 0;
+// ── Touch state ────────────────────────────────────────────────────
+const touchMove = { f:false,b:false,l:false,r:false,u:false,d:false };
+let touchYaw = 0, touchPitch = 0, lookActive = false, lookLastX = 0, lookLastY = 0;
 
-// UI refs
-const overlay      = document.getElementById('overlay');
-const touchControls= document.getElementById('touch-controls');
-const lookZone     = document.getElementById('look-zone');
-const lookHint     = document.getElementById('look-hint');
-const hudDesktop   = document.getElementById('hud-desktop');
-const crosshair    = document.getElementById('crosshair');
+// UI
+const overlay       = document.getElementById('overlay');
+const panel         = document.getElementById('panel');
+const touchControls = document.getElementById('touch-controls');
+const lookZone      = document.getElementById('look-zone');
+const hudDesktop    = document.getElementById('hud-desktop');
+const crosshair     = document.getElementById('crosshair');
 
 if (isMobile) {
   document.getElementById('overlay-sub').textContent = 'Tippe um zu starten';
   document.getElementById('hints').innerHTML =
-    'Pfeile links — Laufen<br>Finger rechts ziehen — Umsehen<br>↑↓ rechts — Höhe';
+    'Pfeile — Laufen &nbsp;|&nbsp; Finger ziehen — Umsehen';
 }
 
 let active = false;
 
 function enterScene() {
   overlay.style.display = 'none';
+  panel.style.display   = 'block';
   active = true;
   if (isMobile) {
     touchControls.style.display = 'flex';
     lookZone.style.display      = 'block';
-    lookHint.style.display      = 'block';
     camera.rotation.order = 'YXZ';
   } else {
     controls.lock();
@@ -261,119 +383,103 @@ function enterScene() {
 }
 
 document.getElementById('startBtn').addEventListener('click', enterScene);
-
 controls.addEventListener('lock', () => {
   overlay.style.display    = 'none';
+  panel.style.display      = 'block';
   hudDesktop.style.display = 'block';
   crosshair.style.display  = 'block';
   active = true;
 });
 controls.addEventListener('unlock', () => {
   overlay.style.display    = 'flex';
+  panel.style.display      = 'none';
   hudDesktop.style.display = 'none';
   crosshair.style.display  = 'none';
   active = false;
 });
 
-// D-pad buttons — touchstart/touchend so they register immediately
+// D-pad
 ['f','b','l','r','u','d'].forEach(dir => {
   const btn = document.getElementById('btn-' + dir);
-  btn.addEventListener('touchstart', e => { e.preventDefault(); touchMove[dir] = true;  }, { passive: false });
-  btn.addEventListener('touchend',   e => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
-  btn.addEventListener('touchcancel',e => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
+  btn.addEventListener('touchstart', e => { e.preventDefault(); touchMove[dir]=true;  }, {passive:false});
+  btn.addEventListener('touchend',   e => { e.preventDefault(); touchMove[dir]=false; }, {passive:false});
+  btn.addEventListener('touchcancel',e => { e.preventDefault(); touchMove[dir]=false; }, {passive:false});
 });
 
-// Look zone — drag to look around
+// Look zone
 lookZone.addEventListener('touchstart', e => {
   e.preventDefault();
   const t = e.changedTouches[0];
-  lookActive = true;
-  lookLastX  = t.clientX;
-  lookLastY  = t.clientY;
-  lookHint.style.display = 'none';
-}, { passive: false });
-
+  lookActive=true; lookLastX=t.clientX; lookLastY=t.clientY;
+}, {passive:false});
 lookZone.addEventListener('touchmove', e => {
   e.preventDefault();
   if (!lookActive) return;
   const t = e.changedTouches[0];
   touchYaw   -= (t.clientX - lookLastX) * TOUCH_LOOK_SENS;
   touchPitch -= (t.clientY - lookLastY) * TOUCH_LOOK_SENS;
-  touchPitch  = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, touchPitch));
-  lookLastX   = t.clientX;
-  lookLastY   = t.clientY;
-}, { passive: false });
+  touchPitch  = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, touchPitch));
+  lookLastX=t.clientX; lookLastY=t.clientY;
+}, {passive:false});
+lookZone.addEventListener('touchend',    () => lookActive=false);
+lookZone.addEventListener('touchcancel', () => lookActive=false);
 
-lookZone.addEventListener('touchend',    () => { lookActive = false; });
-lookZone.addEventListener('touchcancel', () => { lookActive = false; });
-
-// Load model
+// ── Load model ─────────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'flex';
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
-loader.load(
-  MODEL_PATH,
-  gltf => {
-    gltf.scene.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-    const box    = new THREE.Box3().setFromObject(gltf.scene);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    const size   = new THREE.Vector3();
-    box.getSize(size);
-    const scale  = Math.max(size.x, size.y, size.z) > 50 ? 50 / Math.max(size.x, size.y, size.z) : 1;
-    gltf.scene.scale.setScalar(scale);
-    gltf.scene.position.sub(center.multiplyScalar(scale));
-    gltf.scene.position.y = -box.min.y * scale;
-    scene.add(gltf.scene);
-    document.getElementById('loading').style.display = 'none';
-  },
-  xhr => {
-    const pct = xhr.total ? Math.round(xhr.loaded / xhr.total * 100) : '…';
-    document.getElementById('loading').querySelector('p').textContent = `Modell wird geladen… ${pct}%`;
-  },
-  err => {
-    document.getElementById('loading').querySelector('p').textContent = 'Fehler beim Laden. Bitte model.glb prüfen.';
-    console.error(err);
-  }
-);
+loader.load(MODEL_PATH, gltf => {
+  gltf.scene.traverse(n => { if (n.isMesh) { n.castShadow=true; n.receiveShadow=true; } });
+  const box    = new THREE.Box3().setFromObject(gltf.scene);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  const size   = new THREE.Vector3();
+  box.getSize(size);
+  const scale  = Math.max(size.x,size.y,size.z) > 50 ? 50/Math.max(size.x,size.y,size.z) : 1;
+  gltf.scene.scale.setScalar(scale);
+  gltf.scene.position.sub(center.multiplyScalar(scale));
+  gltf.scene.position.y = -box.min.y * scale;
+  scene.add(gltf.scene);
+  document.getElementById('loading').style.display = 'none';
+}, xhr => {
+  const pct = xhr.total ? Math.round(xhr.loaded/xhr.total*100) : '…';
+  document.getElementById('loading').querySelector('p').textContent = `Modell wird geladen… ${pct}%`;
+}, err => {
+  document.getElementById('loading').querySelector('p').textContent = 'Fehler beim Laden.';
+  console.error(err);
+});
 
-// Animate
+// ── Animate ────────────────────────────────────────────────────────
 const dir = new THREE.Vector3();
-
 function animate() {
   requestAnimationFrame(animate);
-
   if (active) {
     if (isMobile) {
       camera.rotation.y = touchYaw;
       camera.rotation.x = touchPitch;
-
-      const forward = new THREE.Vector3(-Math.sin(touchYaw), 0, -Math.cos(touchYaw));
-      const right   = new THREE.Vector3( Math.cos(touchYaw), 0, -Math.sin(touchYaw));
-
-      if (touchMove.f) camera.position.addScaledVector(forward,  MOVE_SPEED);
-      if (touchMove.b) camera.position.addScaledVector(forward, -MOVE_SPEED);
-      if (touchMove.r) camera.position.addScaledVector(right,    MOVE_SPEED);
-      if (touchMove.l) camera.position.addScaledVector(right,   -MOVE_SPEED);
+      const fwd   = new THREE.Vector3(-Math.sin(touchYaw),0,-Math.cos(touchYaw));
+      const right = new THREE.Vector3( Math.cos(touchYaw),0,-Math.sin(touchYaw));
+      if (touchMove.f) camera.position.addScaledVector(fwd,   MOVE_SPEED);
+      if (touchMove.b) camera.position.addScaledVector(fwd,  -MOVE_SPEED);
+      if (touchMove.r) camera.position.addScaledVector(right,  MOVE_SPEED);
+      if (touchMove.l) camera.position.addScaledVector(right, -MOVE_SPEED);
       if (touchMove.u) camera.position.y += MOVE_SPEED;
       if (touchMove.d) camera.position.y -= MOVE_SPEED;
-
     } else if (controls.isLocked) {
-      dir.set(0, 0, 0);
-      if (keys['KeyW'] || keys['ArrowUp'])    dir.z -= 1;
-      if (keys['KeyS'] || keys['ArrowDown'])  dir.z += 1;
-      if (keys['KeyA'] || keys['ArrowLeft'])  dir.x -= 1;
-      if (keys['KeyD'] || keys['ArrowRight']) dir.x += 1;
-      if (dir.lengthSq() > 0) dir.normalize();
-      controls.moveRight(dir.x   * MOVE_SPEED);
+      dir.set(0,0,0);
+      if (keys['KeyW']||keys['ArrowUp'])    dir.z -= 1;
+      if (keys['KeyS']||keys['ArrowDown'])  dir.z += 1;
+      if (keys['KeyA']||keys['ArrowLeft'])  dir.x -= 1;
+      if (keys['KeyD']||keys['ArrowRight']) dir.x += 1;
+      if (dir.lengthSq()>0) dir.normalize();
+      controls.moveRight(dir.x * MOVE_SPEED);
       controls.moveForward(-dir.z * MOVE_SPEED);
       if (keys['Space'])     camera.position.y += MOVE_SPEED;
       if (keys['ShiftLeft']) camera.position.y -= MOVE_SPEED;
     }
   }
-
   renderer.render(scene, camera);
 }
 animate();
