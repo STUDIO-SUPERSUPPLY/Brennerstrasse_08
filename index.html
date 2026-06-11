@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>3D Walkthrough</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: sans-serif; touch-action: none; }
+  canvas { display: block; }
+
+  #overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #fff; z-index: 10;
+  }
+  #overlay h1 { font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.1em; }
+  #overlay p  { color: #aaa; margin-bottom: 2rem; font-size: 0.95rem; text-align: center; padding: 0 1.5rem; }
+  #overlay button {
+    padding: 0.75rem 2rem; background: #fff; color: #000;
+    border: none; font-size: 1rem; cursor: pointer;
+    border-radius: 4px; font-weight: 500;
+  }
+  #hints { margin-top: 2rem; color: #555; font-size: 0.75rem; text-align: center; line-height: 2; }
+
+  #loading {
+    position: absolute; inset: 0; background: #000;
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff; z-index: 20;
+  }
+  #loading p { margin-top: 1rem; color: #aaa; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid #333; border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #crosshair {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 16px; height: 16px;
+    pointer-events: none; display: none;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: rgba(255,255,255,0.5);
+  }
+  #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after  { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
+
+  /* Touch controls */
+  #touch-controls {
+    position: absolute; bottom: 20px; left: 0; right: 0;
+    display: none; justify-content: space-between;
+    align-items: flex-end; padding: 0 20px;
+    pointer-events: none; z-index: 5;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    gap: 4px;
+    pointer-events: all;
+  }
+  .dpad button {
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 10px; color: #fff;
+    font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .dpad button:active { background: rgba(255,255,255,0.35); }
+  .dpad .empty { background: none; border: none; pointer-events: none; }
+
+  .dpad-vertical {
+    display: flex; flex-direction: column; gap: 4px;
+    pointer-events: all;
+  }
+  .dpad-vertical button {
+    width: 52px; height: 52px;
+    background: rgba(255,255,255,0.15);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 10px; color: #fff;
+    font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .dpad-vertical button:active { background: rgba(255,255,255,0.35); }
+
+  #look-zone {
+    position: absolute; top: 0; left: 180px; right: 0; bottom: 140px;
+    z-index: 4; display: none;
+  }
+  #look-hint {
+    position: absolute; top: 16px; right: 16px;
+    color: rgba(255,255,255,0.3); font-size: 0.7rem;
+    pointer-events: none; display: none;
+  }
+
+  #hud-desktop {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.4); font-size: 0.75rem;
+    pointer-events: none; display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Modell wird geladen…</p>
+</div>
+
+<div id="overlay">
+  <h1>3D Walkthrough</h1>
+  <p id="overlay-sub">Klicke um die Navigation zu starten</p>
+  <button id="startBtn">Betreten</button>
+  <div id="hints">
+    W A S D — Bewegen &nbsp;|&nbsp; Maus — Umsehen<br>
+    ESC — Beenden
+  </div>
+</div>
+
+<div id="crosshair"></div>
+
+<!-- Mobile touch look zone -->
+<div id="look-zone"></div>
+<div id="look-hint">Finger ziehen zum Umsehen</div>
+
+<!-- Mobile dpad -->
+<div id="touch-controls">
+  <!-- left: movement dpad -->
+  <div class="dpad">
+    <div class="empty"></div>
+    <button id="btn-f" data-dir="f">▲</button>
+    <div class="empty"></div>
+    <button id="btn-l" data-dir="l">◀</button>
+    <div class="empty"></div>
+    <button id="btn-r" data-dir="r">▶</button>
+    <div class="empty"></div>
+    <button id="btn-b" data-dir="b">▼</button>
+    <div class="empty"></div>
+  </div>
+  <!-- right: up/down -->
+  <div class="dpad-vertical">
+    <button id="btn-u" data-dir="u">↑</button>
+    <button id="btn-d" data-dir="d">↓</button>
+  </div>
+</div>
+
+<div id="hud-desktop">W A S D — Bewegen &nbsp;|&nbsp; ESC — Beenden</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }          from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader }         from 'three/addons/loaders/DRACOLoader.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+// ─── KONFIGURATION ──────────────────────────────────────────────────
+const MODEL_PATH        = 'model.glb';
+const START_POS         = { x: 0, y: 1.7, z: 5 };
+const MOVE_SPEED        = 0.08;
+const TOUCH_LOOK_SENS   = 0.005;
+const FOG_COLOR         = 0x111111;
+const FOG_NEAR          = 10;
+const FOG_FAR           = 80;
+const AMBIENT_INTENSITY = 3.5;
+const SUN_INTENSITY     = 4.0;
+// ────────────────────────────────────────────────────────────────────
+
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+              || window.matchMedia('(pointer: coarse)').matches;
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+// Scene
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOG_COLOR);
+scene.fog = new THREE.Fog(FOG_COLOR, FOG_NEAR, FOG_FAR);
+
+// Camera
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(START_POS.x, START_POS.y, START_POS.z);
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
+const sun = new THREE.DirectionalLight(0xfff5e0, SUN_INTENSITY);
+sun.position.set(10, 20, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { near:0.5, far:100, left:-30, right:30, top:30, bottom:-30 });
+scene.add(sun);
+
+// Desktop controls
+const controls = new PointerLockControls(camera, document.body);
+scene.add(controls.getObject());
+const keys = {};
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup',   e => keys[e.code] = false);
+
+// Touch state
+const touchMove = { f:false, b:false, l:false, r:false, u:false, d:false };
+let   touchYaw   = 0;
+let   touchPitch = 0;
+let   lookActive = false;
+let   lookLastX  = 0;
+let   lookLastY  = 0;
+
+// UI refs
+const overlay      = document.getElementById('overlay');
+const touchControls= document.getElementById('touch-controls');
+const lookZone     = document.getElementById('look-zone');
+const lookHint     = document.getElementById('look-hint');
+const hudDesktop   = document.getElementById('hud-desktop');
+const crosshair    = document.getElementById('crosshair');
+
+if (isMobile) {
+  document.getElementById('overlay-sub').textContent = 'Tippe um zu starten';
+  document.getElementById('hints').innerHTML =
+    'Pfeile links — Laufen<br>Finger rechts ziehen — Umsehen<br>↑↓ rechts — Höhe';
+}
+
+let active = false;
+
+function enterScene() {
+  overlay.style.display = 'none';
+  active = true;
+  if (isMobile) {
+    touchControls.style.display = 'flex';
+    lookZone.style.display      = 'block';
+    lookHint.style.display      = 'block';
+    camera.rotation.order = 'YXZ';
+  } else {
+    controls.lock();
+  }
+}
+
+document.getElementById('startBtn').addEventListener('click', enterScene);
+
+controls.addEventListener('lock', () => {
+  overlay.style.display    = 'none';
+  hudDesktop.style.display = 'block';
+  crosshair.style.display  = 'block';
+  active = true;
+});
+controls.addEventListener('unlock', () => {
+  overlay.style.display    = 'flex';
+  hudDesktop.style.display = 'none';
+  crosshair.style.display  = 'none';
+  active = false;
+});
+
+// D-pad buttons — touchstart/touchend so they register immediately
+['f','b','l','r','u','d'].forEach(dir => {
+  const btn = document.getElementById('btn-' + dir);
+  btn.addEventListener('touchstart', e => { e.preventDefault(); touchMove[dir] = true;  }, { passive: false });
+  btn.addEventListener('touchend',   e => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
+  btn.addEventListener('touchcancel',e => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
+});
+
+// Look zone — drag to look around
+lookZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  lookActive = true;
+  lookLastX  = t.clientX;
+  lookLastY  = t.clientY;
+  lookHint.style.display = 'none';
+}, { passive: false });
+
+lookZone.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!lookActive) return;
+  const t = e.changedTouches[0];
+  touchYaw   -= (t.clientX - lookLastX) * TOUCH_LOOK_SENS;
+  touchPitch -= (t.clientY - lookLastY) * TOUCH_LOOK_SENS;
+  touchPitch  = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, touchPitch));
+  lookLastX   = t.clientX;
+  lookLastY   = t.clientY;
+}, { passive: false });
+
+lookZone.addEventListener('touchend',    () => { lookActive = false; });
+lookZone.addEventListener('touchcancel', () => { lookActive = false; });
+
+// Load model
+document.getElementById('loading').style.display = 'flex';
+const draco = new DRACOLoader();
+draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(draco);
+loader.load(
+  MODEL_PATH,
+  gltf => {
+    gltf.scene.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+    const box    = new THREE.Box3().setFromObject(gltf.scene);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const size   = new THREE.Vector3();
+    box.getSize(size);
+    const scale  = Math.max(size.x, size.y, size.z) > 50 ? 50 / Math.max(size.x, size.y, size.z) : 1;
+    gltf.scene.scale.setScalar(scale);
+    gltf.scene.position.sub(center.multiplyScalar(scale));
+    gltf.scene.position.y = -box.min.y * scale;
+    scene.add(gltf.scene);
+    document.getElementById('loading').style.display = 'none';
+  },
+  xhr => {
+    const pct = xhr.total ? Math.round(xhr.loaded / xhr.total * 100) : '…';
+    document.getElementById('loading').querySelector('p').textContent = `Modell wird geladen… ${pct}%`;
+  },
+  err => {
+    document.getElementById('loading').querySelector('p').textContent = 'Fehler beim Laden. Bitte model.glb prüfen.';
+    console.error(err);
+  }
+);
+
+// Animate
+const dir = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (active) {
+    if (isMobile) {
+      camera.rotation.y = touchYaw;
+      camera.rotation.x = touchPitch;
+
+      const forward = new THREE.Vector3(-Math.sin(touchYaw), 0, -Math.cos(touchYaw));
+      const right   = new THREE.Vector3( Math.cos(touchYaw), 0, -Math.sin(touchYaw));
+
+      if (touchMove.f) camera.position.addScaledVector(forward,  MOVE_SPEED);
+      if (touchMove.b) camera.position.addScaledVector(forward, -MOVE_SPEED);
+      if (touchMove.r) camera.position.addScaledVector(right,    MOVE_SPEED);
+      if (touchMove.l) camera.position.addScaledVector(right,   -MOVE_SPEED);
+      if (touchMove.u) camera.position.y += MOVE_SPEED;
+      if (touchMove.d) camera.position.y -= MOVE_SPEED;
+
+    } else if (controls.isLocked) {
+      dir.set(0, 0, 0);
+      if (keys['KeyW'] || keys['ArrowUp'])    dir.z -= 1;
+      if (keys['KeyS'] || keys['ArrowDown'])  dir.z += 1;
+      if (keys['KeyA'] || keys['ArrowLeft'])  dir.x -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) dir.x += 1;
+      if (dir.lengthSq() > 0) dir.normalize();
+      controls.moveRight(dir.x   * MOVE_SPEED);
+      controls.moveForward(-dir.z * MOVE_SPEED);
+      if (keys['Space'])     camera.position.y += MOVE_SPEED;
+      if (keys['ShiftLeft']) camera.position.y -= MOVE_SPEED;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
