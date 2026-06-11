@@ -59,7 +59,7 @@
     border-radius: 12px;
     padding: 14px 16px;
     color: #fff; font-size: 0.78rem;
-    display: none; z-index: 5;
+    display: block; z-index: 15;
     min-width: 220px;
   }
   #panel .panel-title {
@@ -135,7 +135,7 @@
   <button id="startBtn">Betreten</button>
   <div id="hints">
     W A S D — Bewegen &nbsp;|&nbsp; Maus — Umsehen<br>
-    ESC — Beenden
+    Tab — Einstellungen &nbsp;|&nbsp; ESC — Beenden
   </div>
 </div>
 
@@ -371,7 +371,6 @@ let active = false;
 
 function enterScene() {
   overlay.style.display = 'none';
-  panel.style.display   = 'block';
   active = true;
   if (isMobile) {
     touchControls.style.display = 'flex';
@@ -385,17 +384,28 @@ function enterScene() {
 document.getElementById('startBtn').addEventListener('click', enterScene);
 controls.addEventListener('lock', () => {
   overlay.style.display    = 'none';
-  panel.style.display      = 'block';
   hudDesktop.style.display = 'block';
   crosshair.style.display  = 'block';
   active = true;
 });
 controls.addEventListener('unlock', () => {
   overlay.style.display    = 'flex';
-  panel.style.display      = 'none';
   hudDesktop.style.display = 'none';
   crosshair.style.display  = 'none';
   active = false;
+});
+
+
+// Tab key: toggle panel + release mouse
+let panelOpen = true;
+document.addEventListener('keydown', e => {
+  if (e.code === 'Tab') {
+    e.preventDefault();
+    panelOpen = !panelOpen;
+    panel.style.display = panelOpen ? 'block' : 'none';
+    if (panelOpen && controls.isLocked) controls.unlock();
+    else if (!panelOpen && !controls.isLocked && active) controls.lock();
+  }
 });
 
 // D-pad
