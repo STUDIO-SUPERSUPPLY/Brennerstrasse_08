@@ -193,8 +193,8 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
   }
 }
 </script>
@@ -227,6 +227,12 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.8;
+
+// Required for KHR_materials_transmission (glass, transparent materials)
+const transmissionParams = {
+  samples: 4,
+  resolution: Math.min(window.innerWidth, 1024)
+};
 document.body.appendChild(renderer.domElement);
 
 // Scene
@@ -437,7 +443,7 @@ lookZone.addEventListener('touchcancel', () => lookActive=false);
 // ── Load model ─────────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'flex';
 const draco = new DRACOLoader();
-draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+draco.setDecoderPath('https://unpkg.com/three@0.168.0/examples/jsm/libs/draco/');
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
 loader.load(MODEL_PATH, gltf => {
@@ -451,20 +457,29 @@ loader.load(MODEL_PATH, gltf => {
         // Render both sides — fixes missing/black faces
         mat.side = THREE.DoubleSide;
 
-        // Fix transparency sorting issues
-        if (mat.transparent) {
-          mat.depthWrite    = false;
-          mat.alphaToCoverage = true;
+        if (mat.isMeshPhysicalMaterial) {
+          // KHR_materials_transmission — glass
+          if (mat.transmission > 0) {
+            mat.transparent = true;
+            mat.depthWrite  = false;
+          }
+          // KHR_materials_clearcoat
+          if (mat.clearcoat > 0) {
+            mat.clearcoatRoughness = mat.clearcoatRoughness ?? 0.1;
+          }
         }
 
-        // Fix black materials — if base color is pitch black but no texture, lift it
         if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+          // Fix pitch-black materials with no texture
           if (mat.color && mat.color.r < 0.01 && mat.color.g < 0.01 && mat.color.b < 0.01 && !mat.map) {
             mat.color.set(0x222222);
           }
-          // Ensure metalness/roughness are reasonable
-          if (mat.metalness === undefined) mat.metalness = 0;
-          if (mat.roughness === undefined) mat.roughness = 0.8;
+        }
+
+        // Fix transparency sorting
+        if (mat.transparent) {
+          mat.depthWrite      = false;
+          mat.alphaToCoverage = true;
         }
 
         mat.needsUpdate = true;
