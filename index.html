@@ -59,7 +59,7 @@
     border-radius: 12px;
     padding: 14px 16px;
     color: #fff; font-size: 0.78rem;
-    display: block; z-index: 15;
+    display: block; z-index: 8;
     min-width: 220px;
   }
   #panel .panel-title {
@@ -249,9 +249,18 @@ scene.add(ambientLight);
 
 const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.5);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(2048, 2048);
-Object.assign(sunLight.shadow.camera, { near:0.5, far:200, left:-30, right:30, top:30, bottom:-30 });
+sunLight.shadow.mapSize.set(4096, 4096);
+sunLight.shadow.bias = -0.0005;
+sunLight.shadow.camera.near   = 0.1;
+sunLight.shadow.camera.far    = 300;
+sunLight.shadow.camera.left   = -50;
+sunLight.shadow.camera.right  =  50;
+sunLight.shadow.camera.top    =  50;
+sunLight.shadow.camera.bottom = -50;
 scene.add(sunLight);
+// Shadow target follows scene center
+sunLight.target.position.set(0, 0, 0);
+scene.add(sunLight.target);
 
 // Sky gradient background
 const skyGeo  = new THREE.SphereGeometry(100, 16, 16);
@@ -291,6 +300,16 @@ function updateSun() {
     dist * Math.cos(altitude) * Math.cos(azimuth)
   );
   sunLight.intensity = Math.max(0, Math.sin(altitude)) * sunStr;
+
+  // Sun color — warm orange at sunrise/sunset, white at noon
+  const t = Math.max(0, Math.sin(altitude));
+  const sunColor = new THREE.Color().lerpColors(
+    new THREE.Color(0xff8844), new THREE.Color(0xfff5e0), t
+  );
+  sunLight.color.set(sunColor);
+
+  // Update shadow camera
+  sunLight.shadow.camera.updateProjectionMatrix();
 
   // Sky color based on sun altitude
   const t = Math.max(0, Math.sin(altitude));
@@ -378,6 +397,7 @@ let active = false;
 function enterScene() {
   overlay.style.display = 'none';
   active = true;
+  panel.style.display = 'none';
   if (isMobile) {
     touchControls.style.display = 'flex';
     lookZone.style.display      = 'block';
@@ -396,6 +416,7 @@ controls.addEventListener('lock', () => {
 });
 controls.addEventListener('unlock', () => {
   overlay.style.display    = 'flex';
+  panel.style.display      = 'block';
   hudDesktop.style.display = 'none';
   crosshair.style.display  = 'none';
   active = false;
@@ -403,16 +424,7 @@ controls.addEventListener('unlock', () => {
 
 
 // Tab key: toggle panel + release mouse
-let panelOpen = true;
-document.addEventListener('keydown', e => {
-  if (e.code === 'Tab') {
-    e.preventDefault();
-    panelOpen = !panelOpen;
-    panel.style.display = panelOpen ? 'block' : 'none';
-    if (panelOpen && controls.isLocked) controls.unlock();
-    else if (!panelOpen && !controls.isLocked && active) controls.lock();
-  }
-});
+
 
 // D-pad
 ['f','b','l','r','u','d'].forEach(dir => {
