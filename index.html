@@ -441,7 +441,36 @@ draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/')
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
 loader.load(MODEL_PATH, gltf => {
-  gltf.scene.traverse(n => { if (n.isMesh) { n.castShadow=true; n.receiveShadow=true; } });
+  gltf.scene.traverse(n => {
+    if (n.isMesh) {
+      n.castShadow    = true;
+      n.receiveShadow = true;
+
+      const mats = Array.isArray(n.material) ? n.material : [n.material];
+      mats.forEach(mat => {
+        // Render both sides — fixes missing/black faces
+        mat.side = THREE.DoubleSide;
+
+        // Fix transparency sorting issues
+        if (mat.transparent) {
+          mat.depthWrite    = false;
+          mat.alphaToCoverage = true;
+        }
+
+        // Fix black materials — if base color is pitch black but no texture, lift it
+        if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+          if (mat.color && mat.color.r < 0.01 && mat.color.g < 0.01 && mat.color.b < 0.01 && !mat.map) {
+            mat.color.set(0x222222);
+          }
+          // Ensure metalness/roughness are reasonable
+          if (mat.metalness === undefined) mat.metalness = 0;
+          if (mat.roughness === undefined) mat.roughness = 0.8;
+        }
+
+        mat.needsUpdate = true;
+      });
+    }
+  });
   const box    = new THREE.Box3().setFromObject(gltf.scene);
   const center = new THREE.Vector3();
   box.getCenter(center);
